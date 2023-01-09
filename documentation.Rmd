@@ -1,0 +1,20 @@
+---
+title: "documentation"
+author: "Ana Escobar Llamazares"
+date: "8/1/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Creating an interactive website with the Shiny package
+
+The `shiny` package allows to create above some R function a java-script webpage that interact with the R code and displays the results on the webpage, everthing within a web navigator. This is a good way to do some POC (proofs of concept) to validate the interest of our code before developing a real software around it.
+
+## Folders and files:
+Folder `app` contains the shiny server with the `ui.R` and `server.R` files
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+

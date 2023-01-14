@@ -82,26 +82,27 @@ temp = mean(data$beds, na.rm = TRUE)
 val = is.na(data$beds)
 data$beds[val] = temp
 
-## 2.8 Build city quarters ("arrondissements") ---------------------------------
+# 3. Computations
+## 3.1 Build city quarters ("arrondissements") ---------------------------------
 data$city = str_sub(data$city, 1, 5)
 data$city_quarter = str_sub(data$city_quarter, -2)
 
-## 2.9 Work only with the observations of the data that don't have an empty city_quarter
+## 3.2 Work only with the observations of the data that don't have an empty city_quarter
 data <- subset(data, data$city_quarter != "" & data$city_quarter != '00' & data$city_quarter != ' ')
 
-## 2.10 Compute visit frequency of the different quarters according to time ----
+## 3.3 Compute visit frequency of the different quarters according to time ----
 temp <- inner_join(data, R, by = "listing_id")
 temp = mutate(temp, year = as.numeric(str_extract(temp$date, "^\\d{4}")))
 
-## 2.11 Compute number of apartments per host ----------------------------------
+## 3.4 Compute number of apartments per host ----------------------------------
 count_by_host_1 <- data %>% 
-    group_by(host_id) %>%
-    summarise(number_apt_by_host = n()) %>%
-    ungroup() %>%
-    mutate(groups = case_when(
-        number_apt_by_host == 1 ~ "001",
-        between(number_apt_by_host, 2,10) ~ "002-010",
-        number_apt_by_host > 10 ~ "011-153"))
+  group_by(host_id) %>%
+  summarise(number_apt_by_host = n()) %>%
+  ungroup() %>%
+  mutate(groups = case_when(
+    number_apt_by_host == 1 ~ "001",
+    between(number_apt_by_host, 2, 50) ~ "002-050",
+    number_apt_by_host > 50 ~ "051-153"))
 
 count_by_host_2 <- count_by_host_1 %>%
     group_by(groups) %>%
@@ -119,7 +120,7 @@ top_listings_by_host <- count_by_host_3 %>%
 knit_print.data.frame <- top_listings_by_host
 
 
-## 2.12 List by property type --------------------------------------------------
+## 3.5 List by property type --------------------------------------------------
 whole_property_type_count <- table(data$type)
 property_types_counts <- table(data$type,exclude=names(whole_property_type_count[whole_property_type_count[] < 4000]))
 
@@ -132,32 +133,32 @@ property_types_percentages <- sprintf("%s (%s)", property_types, percentages)
 property_types_counts_df <- data.frame(group = property_types, value = counts)
 
 
-## 2.13 Average price per neighborhood -----------------------------------------
+## 3.6 Average price per neighborhood -----------------------------------------
 
 average_prices_per_arrond <- aggregate(cbind(data$price),
                                        by = list(arrond = data$city_quarter),
                                        FUN = function(x) mean(x))
 
-# 3. Build maps ----------------------------------------------------------------
-## Build dataframe from the dataset the necessary variables to build the map
+# 4. Build maps ----------------------------------------------------------------
+## 4.1 Build dataframe from the dataset the necessary variables to build the map
 df <- select(data,longitude, neighbourhood, latitude, price)
-## Remove the 'metadata' from previous dataframe
+## 4.2 Remove the 'metadata' from previous dataframe
 df %>% select(longitude, neighbourhood, latitude, price)
 
-## Superhost dataframe 
+## 4.3 Superhost dataframe 
 dfsuperhost <- select(data, longitude, neighbourhood, latitude, price)
 dfsuperhost <- filter(data, superhost == "t")
 
 
-# 4. Building the shiny app ---------------------------------------------------
+# 5. Building the shiny app ---------------------------------------------------
 
-## 4.1 Define the UI ----------------------------------------------------------
+## 5.1 Define the UI ----------------------------------------------------------
 ui <- fluidPage(
     
-    # 4.1.1 Add a title
+    # 5.1.1 Add a title
     titlePanel("Exploring the AirBnB Data for Paris"),
     
-    # 4.1.2 Add a sidebar with widgets for selecting features to explore
+    # 5.1.2 Add a sidebar with widgets for selecting features to explore
     dashboardSidebar(
         
         sidebarMenu(
@@ -176,14 +177,14 @@ ui <- fluidPage(
     
     dashboardBody(
       
-      # 4.1.3 A quick overview of the data
+      # 5.1.3 A quick overview of the data
       fluidRow(tags$head(tags$style(HTML(".small-box {height: 100px}"))),
                valueBox("Paris", "France", icon = icon("location-pin"), width = 3),
                valueBoxOutput("mean_price", width = 3),
                valueBoxOutput("nb_superhosts", width = 3),
                valueBoxOutput("count_listings", width = 3)),
         
-      # 4.1.4 Build the dashboards on the corresponding menu item
+      # 5.1.4 Build the dashboards on the corresponding menu item
       tabItems(
           
           tabItem(tabName ="prices_apartments",
@@ -206,14 +207,7 @@ ui <- fluidPage(
                     plotOutput("price_room")%>% withSpinner(color="#971a4a"), 
                     width=6, 
                     solidHeader = FALSE, 
-                    collapsible = TRUE ),
-                
-                  box(title= "Top 10 neighborhoods in Paris",
-                    width =6,
-                    plotlyOutput("top10_nh")%>% withSpinner(color="#971a4a"), 
-                    status = "primary", 
-                    solidHeader = FALSE, 
-                    collapsible = TRUE)
+                    collapsible = TRUE )
             )
           ),  
           
@@ -253,6 +247,13 @@ ui <- fluidPage(
                   solidHeader = FALSE, 
                   collapsible = TRUE)),
             
+            box(title= "Top 10 neighborhoods in Paris",
+                width =6,
+                plotlyOutput("top10_nh")%>% withSpinner(color="#971a4a"), 
+                status = "primary", 
+                solidHeader = FALSE, 
+                collapsible = TRUE),
+            
             fluidRow(
               box(title= "Rented apartments in the past years",
                   width = 12, plotOutput("nb_rented")%>% withSpinner(color="#971a4a"), 
@@ -290,7 +291,7 @@ ui <- fluidPage(
           
           tabItem(tabName ="map",
             fluidPage(
-                box(title = "All listings", 
+                box(title = "Neighborhoud listings", 
                     width = 12,
                     leafletOutput("all_map"), 
                     status = "success", 
@@ -308,15 +309,15 @@ ui <- fluidPage(
     )  
 )
 
-## 4.2 Define the server  -----------------------------------------------------
+## 5.2 Define the server  -----------------------------------------------------
 
 server <- function(input, output) {
     
-    # 4.2.1 Create a Shiny alert
-    shinyalert("DSTI Project for Big Data Processing with R course",
+    # 5.2.1 Create a Shiny alert
+    shinyalert("R for Big Data [DSTI Project]",
                "by Ana Escobar Llamazares - S22")
     
-    # 4.2.2 Output variables; define value boxes
+    # 5.2.2 Output variables; define value boxes
     output$mean_price <- renderValueBox({
         valueBox(
             round(mean(data$price),0), 
@@ -341,8 +342,8 @@ server <- function(input, output) {
         )
     })
     
-    # 4.2.3 Define the graphs
-    ## 4.2.3.1 Listings by room type 
+    # 5.2.3 Define the graphs
+    ## 5.2.3.1 Listings by room type 
     output$room_type <- renderPlot ({
       room_types_counts <- table(data$room)
       room_types <- names(room_types_counts)
@@ -368,7 +369,7 @@ server <- function(input, output) {
         theme_void()
     })
     
-    ## 4.2.3.2 Listings by property type
+    ## 5.2.3.2 Listings by property type
     output$property_type <- renderPlot ({
       ggplot(property_types_counts_df, aes(x="",y = value, fill=property_types_percentages))+
         geom_bar(width = 1,stat = "identity")+
@@ -382,7 +383,7 @@ server <- function(input, output) {
       
     })
     
-    ## 4.2.3.3 Mean price by room type
+    ## 5.2.3.3 Mean price by room type
     output$price_room <- renderPlot ({
       data %>% 
         
@@ -399,7 +400,7 @@ server <- function(input, output) {
         ylab("Mean price")
     })
     
-    ## 4.2.3.4 Top 10 neighborhoods
+    ## 5.2.3.4 Top 10 neighborhoods
     output$top10_nh <- renderPlotly ({
       p30<- data %>%
         group_by(neighbourhood) %>%
@@ -417,7 +418,7 @@ server <- function(input, output) {
       ggplotly(p30)
     })
     
-    ## 4.2.3.5 Nb. of Apartments by host
+    ## 5.2.3.5 Nb. of Apartments per host
     output$nb_apartments <- renderPlot ({
       ggplot(count_by_host_2, aes(x = "", y = counting)) +  
         geom_col(aes(fill = factor(groups)),color = "white")+
@@ -429,7 +430,7 @@ server <- function(input, output) {
         theme_void()
     })
     
-    ## 4.2.3.6 Nb. of superhosts
+    ## 5.2.3.6 Nb. of Superhosts
     output$superhosts <- renderPlot ({
       ggplot(data) +
         geom_bar(aes(x='' , fill=superhost)) +
@@ -439,14 +440,14 @@ server <- function(input, output) {
       
     })
     
-    ## 4.2.3.7 Top 20 hosts
+    ## 5.2.3.7 Top 20 hosts
     output$top20_hosts <- renderDT(
       top_listings_by_host, 
       options = list(searching = FALSE,
                      pageLength = 10
       ))
     
-    ## 4.2.3.8 Avg. price by Neighborhood 
+    ## 5.2.3.8 Avg. price by Neighborhood 
     output$avg_price_nh <- renderPlotly ({
       p3 <- ggplot(data = average_prices_per_arrond, aes(x = arrond, y = V1))+
         geom_bar(stat = "identity", fill = "#971a4a", width = 0.7)+
@@ -459,7 +460,7 @@ server <- function(input, output) {
       ggplotly(p3)
     })
     
-    ## 4.2.3.9 Nb. of rented apartments 
+    ## 5.2.3.9 Nb. of rented apartments 
     output$nb_rented <- renderPlot ({
       temp["date"] <- temp["date"] %>% map(., as.Date)
 
@@ -477,7 +478,7 @@ server <- function(input, output) {
     })
     
     
-    ## 4.2.3.10 Price range by neighborhood 
+    ## 5.2.3.10 Price range per neighborhood 
     output$price_range_nh <- renderPlot({
       height <- max(data$latitude) - min(data$latitude)
       width <- max(data$longitude) - min(data$longitude)
@@ -493,7 +494,7 @@ server <- function(input, output) {
       p8
     })
     
-    ## 4.2.3.11 Nb. of listings by neighborhood
+    ## 5.2.3.11 Nb. of listings per neighborhood
     output$listings_nh <- renderPlotly({
       x <- ggplot(data, aes(x = fct_infreq(neighbourhood), fill = room)) +
         geom_bar() +
@@ -503,7 +504,7 @@ server <- function(input, output) {
       ggplotly(x)
     })
     
-    ## 4.2.3.12 Visit frequency
+    ## 5.2.3.12 Visit frequency
     output$freq_visit <- renderPlotly ({
       p6 <- ggplot(temp) +
         geom_bar(aes(y =city_quarter,
@@ -515,25 +516,25 @@ server <- function(input, output) {
       ggplotly(p6)
     })
     
-    ## 4.2.3.12 All listings map
+    ## 5.2.3.12 Neighborhood listings map
     output$all_map <- renderLeaflet ({
         leaflet(df) %>%  
-            setView(lng = 2.3488, lat = 48.8534, zoom = 10) %>%
+            setView(lng = 2.3488, lat = 48.8534, zoom = 12) %>%
             addTiles() %>% 
             addMarkers(clusterOptions = markerClusterOptions()) %>%
             addMiniMap()
     })
     
-    ## 4.2.3.13 Superhost listings map
+    ## 5.2.3.13 Superhost listings map
     output$superhost_map <- renderLeaflet ({
         leaflet(dfsuperhost %>% select(longitude,neighbourhood,
                                        latitude,price))%>%
-            setView(lng = 2.3488, lat = 48.8534, zoom = 10) %>%
+            setView(lng = 2.3488, lat = 48.8534, zoom = 12) %>%
             addTiles() %>% 
             addMarkers(clusterOptions = markerClusterOptions()) %>%
             addMiniMap()
     })
 }
 
-## 4.3 Run the Shiny App ------------------------------------------------------
+## 5.3 Run the Shiny App ------------------------------------------------------
 shinyApp(ui, server)
